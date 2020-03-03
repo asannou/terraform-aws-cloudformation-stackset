@@ -1,15 +1,5 @@
-variable "role_name" {
-  type    = string
-  default = "AWSCloudFormationStackSetAdministrationRole"
-}
-
-variable "execution_role_name" {
-  type    = string
-  default = "AWSCloudFormationStackSetExecutionRole"
-}
-
 resource "aws_iam_role" "role" {
-  name               = var.role_name
+  name               = var.administration_role_name
   assume_role_policy = data.aws_iam_policy_document.role.json
 }
 
@@ -36,9 +26,5 @@ data "aws_iam_policy_document" "policy" {
     actions   = ["sts:AssumeRole"]
     resources = ["arn:aws:iam::*:role/${var.execution_role_name}"]
   }
-}
-
-output "role_name" {
-  value = aws_iam_role.role.name
 }
 
