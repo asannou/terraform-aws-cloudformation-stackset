@@ -20,18 +20,16 @@ provider "aws" {
   alias   = "account-2"
 }
 
-module "administration_role" {
-  source                   = "github.com/asannou/terraform-aws-cloudformation-stackset//administration-role"
-  administration_role_name = "AWSCloudFormationStackSetAdministrationGuardDutyRole"
-  execution_role_name      = "AWSCloudFormationStackSetExecutionGuardDutyRole"
+module "administration" {
+  source = "github.com/asannou/terraform-aws-cloudformation-stackset//administration-guardduty"
   providers = {
     aws = aws.administration
   }
 }
 
 module "guardduty-1" {
-  source              = "github.com/asannou/terraform-aws-cloudformation-stackset//guardduty"
-  administration_role = module.administration_role
+  source         = "github.com/asannou/terraform-aws-cloudformation-stackset//guardduty"
+  administration = module.administration
   providers = {
     aws.administration = aws.administration
     aws                = aws.account-1
@@ -39,8 +37,8 @@ module "guardduty-1" {
 }
 
 module "guardduty-2" {
-  source              = "github.com/asannou/terraform-aws-cloudformation-stackset//guardduty"
-  administration_role = module.administration_role
+  source         = "github.com/asannou/terraform-aws-cloudformation-stackset//guardduty"
+  administration = module.administration
   providers = {
     aws.administration = aws.administration
     aws                = aws.account-2

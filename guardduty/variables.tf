@@ -1,4 +1,4 @@
-variable "administration_role" {
+variable "administration" {
   type = any
 }
 
