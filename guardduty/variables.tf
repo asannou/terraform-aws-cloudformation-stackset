@@ -7,3 +7,8 @@ variable "master_id" {
   default = ""
 }
 
+variable "finding_publishing_frequency" {
+  type    = string
+  default = "FIFTEEN_MINUTES"
+}
+
