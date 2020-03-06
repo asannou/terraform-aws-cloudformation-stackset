@@ -35,6 +35,11 @@ data "aws_iam_policy_document" "policy" {
     actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.bucket.arn}/*"]
     condition {
+      test     = "ArnLike"
+      variable = "aws:PrincipalArn"
+      values   = ["arn:aws:iam::*:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty"]
+    }
+    condition {
       test     = "StringEquals"
       variable = "aws:PrincipalOrgID"
       values   = [data.aws_organizations_organization.organization.id]
