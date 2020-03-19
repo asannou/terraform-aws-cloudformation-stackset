@@ -39,19 +39,25 @@ Resources:
     Properties:
       Enable: True
       FindingPublishingFrequency: !Ref FindingPublishingFrequency
+  Member:
+    Type: Custom::GuardDutyMember
+    Condition: CreateMasterResource
+    Properties:
+      ServiceToken: !Sub arn:aws:sns:${AWS::Region}:${MasterId}:test
   Master:
     Type: AWS::GuardDuty::Master
     Condition: CreateMasterResource
     Properties:
       DetectorId: !Ref Detector
       MasterId: !Ref MasterId
+    DependsOn: Member
   IPSet:
     Type: AWS::GuardDuty::IPSet
     Condition: CreateIPSetResource
     Properties:
       Activate: True
       DetectorId: !Ref Detector
-      Format: "TXT"
+      Format: TXT
       Location: !Ref IPSetLocation
   ThreatIntelSet:
     Type: AWS::GuardDuty::ThreatIntelSet
@@ -59,5 +65,5 @@ Resources:
     Properties:
       Activate: True
       DetectorId: !Ref Detector
-      Format: "TXT"
+      Format: TXT
       Location: !Ref ThreatIntelSetLocation

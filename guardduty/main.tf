@@ -4,6 +4,10 @@ provider "aws" {
 
 data "aws_caller_identity" "identity" {}
 
+data "aws_caller_identity" "administration" {
+  provider = aws.administration
+}
+
 locals {
   execution_role_name = var.administration.role.execution_role_name
   service_role_arn    = "arn:aws:iam::${data.aws_caller_identity.identity.account_id}:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty"
@@ -50,10 +54,8 @@ data "aws_iam_policy_document" "policy" {
 resource "aws_cloudformation_stack_set" "guardduty" {
   name = "enable-aws-guardduty"
   parameters = {
-    MasterId                   = var.master_id
+    MasterId                   = data.aws_caller_identity.administration.account_id
     FindingPublishingFrequency = var.finding_publishing_frequency
-    IPSetLocation              = var.administration.locations.ipset
-    ThreatIntelSetLocation     = var.administration.locations.threatintelset
   }
   template_body           = file("${path.module}/enable-aws-guardduty.yml")
   administration_role_arn = var.administration.role.arn

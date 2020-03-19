@@ -8,6 +8,11 @@ variable "execution_role_name" {
   default = "AWSCloudFormationStackSetGuardDutyExecutionRole"
 }
 
+variable "master_execution_role_name" {
+  type    = string
+  default = "AWSCloudFormationStackSetGuardDutyMasterExecutionRole"
+}
+
 variable "incoming_web_hook_url" {
   type    = string
   default = null

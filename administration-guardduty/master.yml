@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  CloudformationCustomResourceLambdaFunctionArn:
+    Type: String
+  OrganizationId:
+    Type: String
+Resources:
+  CloudformationCustomResourceTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: CloudformationCustomResource
+  CloudformationCustomResourceTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref CloudformationCustomResourceTopic
+      Topics:
+        - !Ref CloudformationCustomResourceTopic
+  CloudformationCustomResourceSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref CloudformationCustomResourceTopic
+      Endpoint: !Ref CloudformationCustomResourceLambdaFunctionArn
+      Protocol: lambda
