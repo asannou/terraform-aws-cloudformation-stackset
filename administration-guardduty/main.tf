@@ -1,3 +1,5 @@
+data "aws_region" "region" {}
+
 data "aws_caller_identity" "identity" {}
 
 data "aws_organizations_organization" "organization" {}
@@ -63,40 +65,37 @@ resource "aws_s3_bucket_object" "threatintelset" {
   key     = "threatintelset.txt"
 }
 
-resource "aws_cloudformation_stack" "guardduty_to_slack" {
-  name = "guardduty-to-slack"
-  parameters = {
-    IncomingWebHookURL = var.incoming_web_hook_url
-    SlackChannel       = var.slack_channel
-    MinSeverityLevel   = var.min_severity_level
-  }
-  template_body = file("${path.module}/gd2slack.template.yml")
-  capabilities  = ["CAPABILITY_IAM"]
-}
-
-resource "aws_lambda_function" "custom_resource" {
-  filename         = data.archive_file.lambda.output_path
-  function_name    = "guardduty-cloudformation-custom-resource"
-  role             = aws_iam_role.lambda.arn
+resource "aws_lambda_function" "guardduty_to_slack" {
+  filename         = data.archive_file.guardduty_to_slack.output_path
+  function_name    = "guardduty-to-slack"
+  description      = "Lambda to push GuardDuty findings to slack"
+  role             = aws_iam_role.guardduty_to_slack.arn
   handler          = "index.handler"
   runtime          = "nodejs12.x"
-  timeout          = "60"
-  source_code_hash = data.archive_file.lambda.output_base64sha256
+  timeout          = "10"
+  source_code_hash = data.archive_file.guardduty_to_slack.output_base64sha256
+  environment {
+    variables = {
+      webHookUrl       = var.incoming_web_hook_url
+      slackChannel     = var.slack_channel
+      minSeverityLevel = var.min_severity_level
+    }
+  }
 }
 
-data "archive_file" "lambda" {
+data "archive_file" "guardduty_to_slack" {
   type        = "zip"
-  source_dir  = "${path.module}/custom-resource"
-  output_path = "${path.module}/custom-resource.zip"
+  source_dir  = "${path.module}/gd2slack"
+  output_path = "${path.module}/gd2slack.zip"
 }
 
-resource "aws_iam_role" "lambda" {
-  name               = "LambdaRoleGuardDutyCloudformationCustomResource"
+resource "aws_iam_role" "guardduty_to_slack" {
+  name               = "LambdaRoleGuardDutyToSlack"
   path               = "/"
-  assume_role_policy = data.aws_iam_policy_document.lambda_role.json
+  assume_role_policy = data.aws_iam_policy_document.guardduty_to_slack.json
 }
 
-data "aws_iam_policy_document" "lambda_role" {
+data "aws_iam_policy_document" "guardduty_to_slack" {
   statement {
     effect  = "Allow"
     actions = ["sts:AssumeRole"]
@@ -107,18 +106,100 @@ data "aws_iam_policy_document" "lambda_role" {
   }
 }
 
-resource "aws_iam_role_policy_attachment" "lambda" {
-  role       = aws_iam_role.lambda.name
-  policy_arn = aws_iam_policy.lambda.arn
+locals {
+  guardduty_to_slack_policy_arns = [
+    "arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess",
+    "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+    "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole",
+  ]
 }
 
-resource "aws_iam_policy" "lambda" {
+resource "aws_iam_role_policy_attachment" "guardduty_to_slack" {
+  count      = length(local.guardduty_to_slack_policy_arns)
+  role       = aws_iam_role.guardduty_to_slack.name
+  policy_arn = local.guardduty_to_slack_policy_arns[count.index]
+}
+
+resource "aws_lambda_permission" "guardduty_to_slack" {
+  count         = length(var.regions)
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.guardduty_to_slack.function_name
+  principal     = "sns.amazonaws.com"
+  source_arn    = "arn:aws:sns:${var.regions[count.index]}:${data.aws_caller_identity.identity.account_id}:GuardDuty"
+}
+
+resource "aws_cloudwatch_log_group" "guardduty_to_slack" {
+  name              = "/aws/lambda/${aws_lambda_function.guardduty_to_slack.function_name}"
+  retention_in_days = 14
+}
+
+resource "aws_iam_role_policy_attachment" "guardduty_to_slack_log" {
+  role       = aws_iam_role.guardduty_to_slack.name
+  policy_arn = aws_iam_policy.guardduty_to_slack_log.arn
+}
+
+resource "aws_iam_policy" "guardduty_to_slack_log" {
+  name   = "GuardDutyToSlackLambdaLogging"
+  path   = "/"
+  policy = data.aws_iam_policy_document.guardduty_to_slack_log.json
+}
+
+data "aws_iam_policy_document" "guardduty_to_slack_log" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ]
+    resources = ["arn:aws:logs:${data.aws_region.region.name}:${data.aws_caller_identity.identity.account_id}:log-group:${aws_cloudwatch_log_group.guardduty_to_slack.name}:*"]
+  }
+}
+
+resource "aws_lambda_function" "custom_resource" {
+  filename         = data.archive_file.custom_resource.output_path
+  function_name    = "guardduty-cloudformation-custom-resource"
+  role             = aws_iam_role.custom_resource.arn
+  handler          = "index.handler"
+  runtime          = "nodejs12.x"
+  timeout          = "60"
+  source_code_hash = data.archive_file.custom_resource.output_base64sha256
+}
+
+data "archive_file" "custom_resource" {
+  type        = "zip"
+  source_dir  = "${path.module}/custom-resource"
+  output_path = "${path.module}/custom-resource.zip"
+}
+
+resource "aws_iam_role" "custom_resource" {
+  name               = "LambdaRoleGuardDutyCloudformationCustomResource"
+  path               = "/"
+  assume_role_policy = data.aws_iam_policy_document.custom_resource_role.json
+}
+
+data "aws_iam_policy_document" "custom_resource_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "custom_resource" {
+  role       = aws_iam_role.custom_resource.name
+  policy_arn = aws_iam_policy.custom_resource.arn
+}
+
+resource "aws_iam_policy" "custom_resource" {
   name   = "GuardDutyMemberAccess"
   path   = "/"
-  policy = data.aws_iam_policy_document.lambda.json
+  policy = data.aws_iam_policy_document.custom_resource.json
 }
 
-data "aws_iam_policy_document" "lambda" {
+data "aws_iam_policy_document" "custom_resource" {
   statement {
     effect = "Allow"
     actions = [
@@ -131,7 +212,7 @@ data "aws_iam_policy_document" "lambda" {
   }
 }
 
-resource "aws_lambda_permission" "permission" {
+resource "aws_lambda_permission" "custom_resource" {
   count         = length(var.regions)
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.custom_resource.function_name
@@ -139,30 +220,30 @@ resource "aws_lambda_permission" "permission" {
   source_arn    = "arn:aws:sns:${var.regions[count.index]}:${data.aws_caller_identity.identity.account_id}:CloudformationCustomResource"
 }
 
-resource "aws_cloudwatch_log_group" "lambda_log" {
+resource "aws_cloudwatch_log_group" "custom_resource" {
   name              = "/aws/lambda/${aws_lambda_function.custom_resource.function_name}"
   retention_in_days = 14
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_log" {
-  role       = aws_iam_role.lambda.name
-  policy_arn = aws_iam_policy.lambda_log.arn
+resource "aws_iam_role_policy_attachment" "custom_resource_log" {
+  role       = aws_iam_role.custom_resource.name
+  policy_arn = aws_iam_policy.custom_resource_log.arn
 }
 
-resource "aws_iam_policy" "lambda_log" {
+resource "aws_iam_policy" "custom_resource_log" {
   name   = "GuardDutyCloudformationCustomResourceLogging"
   path   = "/"
-  policy = data.aws_iam_policy_document.lambda_log.json
+  policy = data.aws_iam_policy_document.custom_resource_log.json
 }
 
-data "aws_iam_policy_document" "lambda_log" {
+data "aws_iam_policy_document" "custom_resource_log" {
   statement {
     effect = "Allow"
     actions = [
       "logs:CreateLogStream",
       "logs:PutLogEvents"
     ]
-    resources = ["arn:aws:logs:*:*:*"]
+    resources = ["arn:aws:logs:${data.aws_region.region.name}:${data.aws_caller_identity.identity.account_id}:log-group:${aws_cloudwatch_log_group.custom_resource.name}:*"]
   }
 }
 
@@ -170,26 +251,22 @@ module "master_execution_role" {
   source                  = "github.com/asannou/terraform-aws-cloudformation-stackset//execution-role"
   administration_role_arn = module.administration_role.arn
   execution_role_name     = var.master_execution_role_name
-  policy_arns             = [aws_iam_policy.role.arn]
-}
-
-resource "aws_iam_policy" "role" {
-  name   = "${var.master_execution_role_name}Policy"
-  policy = data.aws_iam_policy_document.role.json
-}
-
-data "aws_iam_policy_document" "role" {
-  statement {
-    effect    = "Allow"
-    actions   = ["sns:*"]
-    resources = ["*"]
-  }
+  policy_arns = [
+    "arn:aws:iam::aws:policy/CloudWatchEventsFullAccess",
+    "arn:aws:iam::aws:policy/AmazonSNSFullAccess",
+  ]
 }
 
 resource "aws_cloudformation_stack_set" "master" {
   name = "guardduty-master"
   parameters = {
+    CreateDetector                                = var.create_detector
+    FindingPublishingFrequency                    = var.finding_publishing_frequency
+    IPSetLocation                                 = "s3://${aws_s3_bucket_object.ipset.bucket}/${aws_s3_bucket_object.ipset.key}"
+    ThreatIntelSetLocation                        = "s3://${aws_s3_bucket_object.threatintelset.bucket}/${aws_s3_bucket_object.threatintelset.key}"
+    GuardDutyLambdaFunctionArn                    = aws_lambda_function.guardduty_to_slack.arn
     CloudformationCustomResourceLambdaFunctionArn = aws_lambda_function.custom_resource.arn
+    ExecutionRoleName                             = var.execution_role_name
     OrganizationId                                = data.aws_organizations_organization.organization.id
   }
   template_body           = file("${path.module}/master.yml")
@@ -197,7 +274,7 @@ resource "aws_cloudformation_stack_set" "master" {
   execution_role_name     = var.master_execution_role_name
   depends_on = [
     module.master_execution_role,
-    aws_lambda_permission.permission
+    aws_lambda_permission.custom_resource
   ]
 }
 
@@ -206,7 +283,8 @@ module "instances" {
   stack_set_name = aws_cloudformation_stack_set.master.name
   module_depends_on = [
     module.administration_role,
-    module.master_execution_role
+    module.master_execution_role,
+    aws_cloudformation_stack_set.master
   ]
   providers = {
     aws.administration = aws

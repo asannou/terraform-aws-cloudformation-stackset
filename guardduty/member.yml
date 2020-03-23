@@ -1,0 +1,32 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates an AWS::GuardDuty::Detector resource and optionally AWS::GuardDuty::* resources in a set of accounts and regions.
+Parameters:
+  MasterId:
+    Type: String
+  Email:
+    Type: String
+    Default: ''
+  FindingPublishingFrequency:
+    Default: SIX_HOURS
+    Type: String
+    AllowedValues:
+      - FIFTEEN_MINUTES
+      - ONE_HOUR
+      - SIX_HOURS
+Resources:
+  Detector:
+    Type: AWS::GuardDuty::Detector
+    Properties:
+      Enable: True
+      FindingPublishingFrequency: !Ref FindingPublishingFrequency
+  Member:
+    Type: Custom::GuardDutyMember
+    Properties:
+      ServiceToken: !Sub arn:aws:sns:${AWS::Region}:${MasterId}:CloudformationCustomResource
+      Email: !Ref Email
+  Master:
+    Type: AWS::GuardDuty::Master
+    Properties:
+      DetectorId: !Ref Detector
+      MasterId: !Ref MasterId
+    DependsOn: Member

@@ -1,10 +1,110 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Parameters:
+  CreateDetector:
+    Default: 'true'
+    Type: String
+    AllowedValues:
+      - 'true'
+      - 'false'
+  FindingPublishingFrequency:
+    Default: SIX_HOURS
+    Type: String
+    AllowedValues:
+      - FIFTEEN_MINUTES
+      - ONE_HOUR
+      - SIX_HOURS
+  IPSetLocation:
+    Type: String
+    Default: ''
+  ThreatIntelSetLocation:
+    Type: String
+    Default: ''
+  GuardDutyLambdaFunctionArn:
+    Type: String
   CloudformationCustomResourceLambdaFunctionArn:
+    Type: String
+  ExecutionRoleName:
     Type: String
   OrganizationId:
     Type: String
+Conditions:
+  ShouldCreateDetector: !Equals
+      - !Ref CreateDetector
+      - 'true'
+  CreateIPSetResource: !And
+    - !Equals
+      - !Ref CreateDetector
+      - 'true'
+    - !Not
+      - !Equals
+        - !Ref IPSetLocation
+        - ''
+  CreateThreatIntelSet: !And
+    - !Equals
+      - !Ref CreateDetector
+      - 'true'
+    - !Not
+      - !Equals
+        - !Ref ThreatIntelSetLocation
+        - ''
 Resources:
+  Detector:
+    Type: AWS::GuardDuty::Detector
+    Condition: ShouldCreateDetector
+    Properties:
+      Enable: True
+      FindingPublishingFrequency: !Ref FindingPublishingFrequency
+  IPSet:
+    Type: AWS::GuardDuty::IPSet
+    Condition: CreateIPSetResource
+    Properties:
+      Activate: True
+      DetectorId: !Ref Detector
+      Format: TXT
+      Location: !Ref IPSetLocation
+  ThreatIntelSet:
+    Type: AWS::GuardDuty::ThreatIntelSet
+    Condition: CreateThreatIntelSet
+    Properties:
+      Activate: True
+      DetectorId: !Ref Detector
+      Format: TXT
+      Location: !Ref ThreatIntelSetLocation
+  GuardDutyRule:
+    Type: AWS::Events::Rule
+    Properties:
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.guardduty
+        detail-type:
+          - GuardDuty Finding
+      Targets:
+        - Arn: !Ref GuardDutyTopic
+          Id: GuardDutyTopic
+  GuardDutyTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: GuardDuty
+  GuardDutyTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref GuardDutyTopic
+      Topics:
+        - !Ref GuardDutyTopic
+  GuardDutySubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref GuardDutyTopic
+      Endpoint: !Ref GuardDutyLambdaFunctionArn
+      Protocol: lambda
   CloudformationCustomResourceTopic:
     Type: AWS::SNS::Topic
     Properties:
@@ -16,10 +116,16 @@ Resources:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
-            Principal:
-              Service: cloudformation.amazonaws.com
+            Principal: "*"
             Action: sns:Publish
             Resource: !Ref CloudformationCustomResourceTopic
+            Condition:
+              ArnLike:
+                aws:PrincipalArn:
+                  - !Sub "arn:aws:iam::*:role/${ExecutionRoleName}"
+              StringEquals:
+                aws:PrincipalOrgID:
+                  - !Ref OrganizationId
       Topics:
         - !Ref CloudformationCustomResourceTopic
   CloudformationCustomResourceSubscription:

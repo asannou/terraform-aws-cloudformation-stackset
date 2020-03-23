@@ -20,7 +20,8 @@ async function processRecord(record, context) {
 
 async function processMessage(message) {
 
-  const accountId = message.StackId.split(':')[4];
+  const [, , , region, accountId] = message.StackId.split(':');
+  AWS.config.update({ region: region });
 
   switch (message.ResourceType) {
     case 'Custom::GuardDutyMember':

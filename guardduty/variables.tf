@@ -2,9 +2,9 @@ variable "administration" {
   type = any
 }
 
-variable "master_id" {
+variable "email" {
   type    = string
-  default = ""
+  default = null
 }
 
 variable "finding_publishing_frequency" {
