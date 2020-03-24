@@ -21,7 +21,7 @@ provider "aws" {
 }
 
 module "administration" {
-  source = "github.com/asannou/terraform-aws-cloudformation-stackset//administration-guardduty"
+  source = "github.com/asannou/terraform-aws-cloudformation-stackset//guardduty-administration"
   providers = {
     aws = aws.administration
   }
