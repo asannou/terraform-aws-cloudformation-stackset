@@ -254,6 +254,8 @@ module "master_execution_role" {
   policy_arns = [
     "arn:aws:iam::aws:policy/CloudWatchEventsFullAccess",
     "arn:aws:iam::aws:policy/AmazonSNSFullAccess",
+    "arn:aws:iam::aws:policy/AmazonGuardDutyFullAccess",
+    "arn:aws:iam::aws:policy/IAMFullAccess",
   ]
 }
 
