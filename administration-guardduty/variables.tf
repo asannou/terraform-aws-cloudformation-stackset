@@ -13,11 +13,6 @@ variable "master_execution_role_name" {
   default = "AWSCloudFormationStackSetGuardDutyMasterExecutionRole"
 }
 
-variable "create_detector" {
-  type    = string
-  default = "true"
-}
-
 variable "finding_publishing_frequency" {
   type    = string
   default = "FIFTEEN_MINUTES"

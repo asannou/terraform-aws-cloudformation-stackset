@@ -1,11 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Parameters:
-  CreateDetector:
-    Default: 'true'
-    Type: String
-    AllowedValues:
-      - 'true'
-      - 'false'
   FindingPublishingFrequency:
     Default: SIX_HOURS
     Type: String
@@ -28,29 +22,17 @@ Parameters:
   OrganizationId:
     Type: String
 Conditions:
-  ShouldCreateDetector: !Equals
-      - !Ref CreateDetector
-      - 'true'
-  CreateIPSetResource: !And
+  CreateIPSetResource: !Not
     - !Equals
-      - !Ref CreateDetector
-      - 'true'
-    - !Not
-      - !Equals
-        - !Ref IPSetLocation
-        - ''
-  CreateThreatIntelSet: !And
+      - !Ref IPSetLocation
+      - ''
+  CreateThreatIntelSet: !Not
     - !Equals
-      - !Ref CreateDetector
-      - 'true'
-    - !Not
-      - !Equals
-        - !Ref ThreatIntelSetLocation
-        - ''
+      - !Ref ThreatIntelSetLocation
+      - ''
 Resources:
   Detector:
     Type: AWS::GuardDuty::Detector
-    Condition: ShouldCreateDetector
     Properties:
       Enable: True
       FindingPublishingFrequency: !Ref FindingPublishingFrequency

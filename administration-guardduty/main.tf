@@ -262,7 +262,6 @@ module "master_execution_role" {
 resource "aws_cloudformation_stack_set" "master" {
   name = "guardduty-master"
   parameters = {
-    CreateDetector                                = var.create_detector
     FindingPublishingFrequency                    = var.finding_publishing_frequency
     IPSetLocation                                 = "s3://${aws_s3_bucket_object.ipset.bucket}/${aws_s3_bucket_object.ipset.key}"
     ThreatIntelSetLocation                        = "s3://${aws_s3_bucket_object.threatintelset.bucket}/${aws_s3_bucket_object.threatintelset.key}"
