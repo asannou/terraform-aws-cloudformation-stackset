@@ -18,6 +18,16 @@ variable "finding_publishing_frequency" {
   default = "FIFTEEN_MINUTES"
 }
 
+variable "ipset" {
+  type    = string
+  default = ""
+}
+
+variable "threatintelset" {
+  type    = string
+  default = ""
+}
+
 variable "incoming_web_hook_url" {
   type        = string
   description = "Your unique Incoming Web Hook URL from slack service"

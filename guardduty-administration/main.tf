@@ -54,14 +54,14 @@ data "aws_iam_policy_document" "bucket_policy" {
 resource "aws_s3_bucket_object" "ipset" {
   bucket  = aws_s3_bucket.bucket.id
   acl     = "private"
-  content = file("ipset.txt")
+  content = var.ipset
   key     = "ipset.txt"
 }
 
 resource "aws_s3_bucket_object" "threatintelset" {
   bucket  = aws_s3_bucket.bucket.id
   acl     = "private"
-  content = file("threatintelset.txt")
+  content = var.threatintelset
   key     = "threatintelset.txt"
 }
 

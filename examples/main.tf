@@ -21,7 +21,9 @@ provider "aws" {
 }
 
 module "administration" {
-  source = "github.com/asannou/terraform-aws-cloudformation-stackset//guardduty-administration"
+  source         = "github.com/asannou/terraform-aws-cloudformation-stackset//guardduty-administration"
+  ipset          = file("ipset.txt")
+  threatintelset = file("threatintelset.txt")
   providers = {
     aws = aws.administration
   }
