@@ -6,19 +6,11 @@ Parameters:
   Email:
     Type: String
     Default: ''
-  FindingPublishingFrequency:
-    Default: SIX_HOURS
-    Type: String
-    AllowedValues:
-      - FIFTEEN_MINUTES
-      - ONE_HOUR
-      - SIX_HOURS
 Resources:
   Detector:
     Type: AWS::GuardDuty::Detector
     Properties:
       Enable: True
-      FindingPublishingFrequency: !Ref FindingPublishingFrequency
   Member:
     Type: Custom::GuardDutyMember
     Properties:

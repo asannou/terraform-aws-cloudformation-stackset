@@ -7,8 +7,3 @@ variable "email" {
   default = null
 }
 
-variable "finding_publishing_frequency" {
-  type    = string
-  default = "FIFTEEN_MINUTES"
-}
-

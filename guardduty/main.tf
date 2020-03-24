@@ -54,9 +54,8 @@ data "aws_iam_policy_document" "policy" {
 resource "aws_cloudformation_stack_set" "guardduty" {
   name = "guardduty-member"
   parameters = {
-    MasterId                   = data.aws_caller_identity.administration.account_id
-    Email                      = var.email
-    FindingPublishingFrequency = var.finding_publishing_frequency
+    MasterId = data.aws_caller_identity.administration.account_id
+    Email    = var.email
   }
   template_body           = file("${path.module}/member.yml")
   administration_role_arn = var.administration.role.arn
