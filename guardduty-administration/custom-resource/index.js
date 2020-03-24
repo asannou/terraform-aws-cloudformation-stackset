@@ -51,7 +51,7 @@ async function createMember(accountId, email) {
   const detectorId = detectors.DetectorIds[0];
 
   if (!email) {
-    const organizations = new AWS.Organizations();
+    const organizations = new AWS.Organizations({ region: 'us-east-1' });
     const account = await organizations.describeAccount({
       AccountId: accountId
     }).promise();
